@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🚗 M.R.S Auto Parts Shop</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Roboto', sans-serif; background: #f4f6f8; margin:0; color:#333; }
+  header { background:#2c3e50; color:#fff; text-align:center; padding:20px; font-size:1.8em; font-weight:700; }
+  .container { max-width:1200px; margin:auto; padding:20px; }
+  .search-sort { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+  input, select, button { padding:10px; border-radius:5px; border:1px solid #ccc; }
+  button { cursor:pointer; background:#27ae60; color:#fff; border:none; transition:0.3s; }
+  button:hover { background:#219150; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+  th, td { text-align:center; padding:12px; border-bottom:1px solid #ddd; }
+  th { background:#34495e; color:#fff; cursor:pointer; }
+  tr:hover { background:#f1f1f1; }
+  .low-stock { color:red; font-weight:bold; }
+  .cart { margin-top:30px; background:#fff; padding:15px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+  .cart h2 { margin-top:0; }
+  .qty-input { width:60px; text-align:center; padding:5px; }
+  .remove-btn { background:#e74c3c; color:#fff; border:none; padding:6px 12px; border-radius:5px; cursor:pointer; }
+  .remove-btn:hover { background:#c0392b; }
+  .invoice-btn { background:#2980b9; color:#fff; padding:10px 20px; border:none; border-radius:5px; cursor:pointer; margin-top:10px; }
+  .invoice-btn:hover { background:#1c5980; }
+</style>
+</head>
+<body>
+
+<header>🚗 M.R.S Auto Parts Shop</header>
+<div class="container">
+
+  <div class="search-sort">
+    <input type="text" id="search" placeholder="Search by Name, ID, or Category">
+    <select id="sort" onchange="sortInventory()">
+      <option value="">Sort By</option>
+      <option value="name">Name</option>
+      <option value="price">Unit Price</option>
+      <option value="quantity">Quantity</option>
+    </select>
+    <button onclick="searchItems()">Search</button>
+    <button onclick="loadInventory()">Reset</button>
+  </div>
+
+  <table id="inventoryTable">
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>Item ID</th>
+        <th>Item Name</th>
+        <th>Category</th>
+        <th>Quantity</th>
+        <th>Unit Price (LKR)</th>
+        <th>Supplier</th>
+        <th>Date Added</th>
+        <th>Location</th>
+      </tr>
+    </thead>
+    <tbody id="inventoryBody"></tbody>
+  </table>
+
+  <div class="cart">
+    <h2>🛒 Selected Items</h2>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Remove</th></tr>
+      </thead>
+      <tbody id="cartBody"></tbody>
+    </table>
+    <h3 id="grandTotal">Grand Total: LKR 0</h3>
+    <button class="invoice-btn" onclick="generateInvoice()">Generate Professional Invoice (PDF)</button>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+let inventory = [];
+let cart = [];
+
+// Load inventory
+async function loadInventory() {
+  let res = await fetch("/inventory");
+  inventory = await res.json();
+  renderInventory(inventory);
+}
+
+// Render inventory table
+function renderInventory(items) {
+  const body = document.getElementById("inventoryBody");
+  body.innerHTML = "";
+  items.forEach(item => {
+    let stockClass = item["Quantity"] <=5 ? 'low-stock':'';
+    let row = `<tr>
+      <td><input type="checkbox" onchange="toggleCart(this,'${item['Item ID']}')"></td>
+      <td>${item["Item ID"]}</td>
+      <td>${item["Item Name"]}</td>
+      <td>${item["Category"]}</td>
+      <td class="${stockClass}">${item["Quantity"]}</td>
+      <td>${item["Unit Price (LKR)"]}</td>
+      <td>${item["Supplier"]}</td>
+      <td>${item["Date Added"]}</td>
+      <td>${item["Location"]}</td>
+    </tr>`;
+    body.innerHTML += row;
+  });
+}
+
+// Toggle cart selection
+function toggleCart(checkbox,id){
+  let item = inventory.find(i=>i["Item ID"]===id);
+  if(checkbox.checked){
+    cart.push({...item, qty:1});
+  } else {
+    cart = cart.filter(c=>c["Item ID"]!==id);
+  }
+  renderCart();
+}
+
+// Render cart table
+function renderCart(){
+  const body = document.getElementById("cartBody");
+  body.innerHTML = "";
+  let total=0;
+  cart.forEach((item,index)=>{
+    let lineTotal=item.qty*item["Unit Price (LKR)"];
+    total+=lineTotal;
+    body.innerHTML+=`<tr>
+      <td>${item["Item Name"]}</td>
+      <td><input type="number" class="qty-input" min="1" max="${item["Quantity"]}" value="${item.qty}" onchange="updateQty(${index},this.value)"></td>
+      <td>${item["Unit Price (LKR)"]}</td>
+      <td>${lineTotal}</td>
+      <td><button class="remove-btn" onclick="removeFromCart(${index})">X</button></td>
+    </tr>`;
+  });
+  document.getElementById("grandTotal").innerText="Grand Total: LKR "+total;
+}
+
+// Update quantity
+function updateQty(index,value){
+  value=parseInt(value);
+  if(value<1) value=1;
+  if(value>cart[index]["Quantity"]) value=cart[index]["Quantity"];
+  cart[index].qty=value;
+  renderCart();
+}
+
+// Remove from cart
+function removeFromCart(index){
+  cart.splice(index,1);
+  renderCart();
+}
+
+// Search inventory
+function searchItems(){
+  let keyword=document.getElementById("search").value.toLowerCase();
+  let filtered=inventory.filter(i=>
+    i["Item ID"].toLowerCase().includes(keyword)||
+    i["Item Name"].toLowerCase().includes(keyword)||
+    i["Category"].toLowerCase().includes(keyword)
+  );
+  renderInventory(filtered);
+}
+
+// Sort inventory
+function sortInventory(){
+  let criteria=document.getElementById("sort").value;
+  if(!criteria) return renderInventory(inventory);
+  let sorted=[...inventory].sort((a,b)=>{
+    if(criteria==="name") return a["Item Name"].localeCompare(b["Item Name"]);
+    if(criteria==="price") return a["Unit Price (LKR)"]-b["Unit Price (LKR)"];
+    if(criteria==="quantity") return a["Quantity"]-b["Quantity"];
+  });
+  renderInventory(sorted);
+}
+
+// Professional Invoice PDF
+function generateInvoice(){
+  if(cart.length===0){alert("No items selected!"); return;}
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const margin = 20;
+  let y = 20;
+
+  // Header
+  doc.setFontSize(18);
+  doc.text("M.R.S Auto Parts Shop",margin,y);
+  doc.setFontSize(12);
+  doc.text(`Invoice #: ${Math.floor(Math.random()*10000)}`,150,y);
+  y+=7;
+  let today = new Date();
+  doc.text(`Date: ${today.toLocaleDateString()}`,150,y);
+  y+=15;
+
+  // Customer placeholder
+  doc.setFontSize(12);
+  doc.text("Customer: ____________________",margin,y);
+  y+=7;
+  doc.text("Address: ____________________",margin,y);
+  y+=15;
+
+  // Table headers
+  doc.setFontSize(12);
+  doc.text("Item",margin,y);
+  doc.text("Qty",80,y);
+  doc.text("Unit Price",110,y);
+  doc.text("Total",150,y);
+  y+=7;
+  doc.line(margin,y,190,y);
+  y+=3;
+
+  // Items
+  let grandTotal=0;
+  cart.forEach(item=>{
+    let lineTotal = item.qty*item["Unit Price (LKR)"];
+    grandTotal+=lineTotal;
+    doc.text(item["Item Name"],margin,y);
+    doc.text(item.qty.toString(),85,y);
+    doc.text(item["Unit Price (LKR)"].toString(),115,y);
+    doc.text(lineTotal.toString(),155,y);
+    y+=7;
+  });
+
+  doc.line(margin,y,190,y);
+  y+=5;
+  doc.setFontSize(14);
+  doc.text(`Grand Total: LKR ${grandTotal}`,margin,y);
+
+  y+=15;
+  doc.setFontSize(10);
+  doc.text("Thank you for your purchase! Visit again!",margin,y);
+
+  doc.save(`Invoice_${today.getTime()}.pdf`);
+}
+
+// Initial load
+loadInventory();
+</script>
+
+</body>
+</html>

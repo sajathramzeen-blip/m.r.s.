@@ -1,0 +1,6 @@
+Item ID,Item Name,Category,Quantity,Unit Price (LKR),Supplier,Date Added,Location
+AUT001,Brake Pad Set,Braking System,120,7500,AutoZone Lanka,2025-08-01,Rack B2
+AUT002,Car Battery 45Ah,Electrical,35,18500,PowerCell Pvt Ltd,2025-08-03,Rack D1
+AUT003,Engine Oil 5W-30,Lubricants,80,5600,Lubricants Co,2025-08-08,Rack A5
+AUT004,Air Filter,Engine Parts,150,3200,FilterPro Distributors,2025-08-12,Rack C3
+AUT005,Spark Plug,Ignition System,200,950,Ignite Lanka,2025-08-18,Rack E2
